@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-#filename: mp3arrange.mp3
-#developer: badsyntax.co
+#mp3arrange.sh by badsyntax.co
+
+#- This bash script will re-arrange an iTunes collection 
+#  from format 'Artist/Album/Track.mp3' to format 'Genre/Artist/Album/Track.mp3'.
+#- Only mp3 files are moved.
+#- The folder data is collected from the track ID3 V2 tags. 
+#- The id3v2 utility is required.
 
 
-#
 # Constants
-#
 VERSION="0.1.0"
 
-#
 # DEFAULTS
-#
 BASE_DIR="."
 TARGET_DIR="."
 TOTAL_SIZE="0"
