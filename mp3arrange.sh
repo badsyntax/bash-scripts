@@ -108,10 +108,25 @@ move_files()
 	done
 }
 
+#TODO: not ignoring hidden files
 remove_empty_directories()
 {
-	#TODO: not ignoring hidden files
-	find "$BASE_DIR" -depth -type d -empty -exec rmdir {} \;
+	EMPTY_DIRECTORIES=$(find . -type d -empty | wc -l | tr -d " ")
+	if [ "$EMPTY_DIRECTORIES" -gt 0 ]
+	then
+		echo -e "\nThere are $EMPTY_DIRECTORIES empty direcories in the base directory \"$BASE_DIR\"."
+		echo -n "Do you want to remove the empty directories? (y/n) "
+		read remove_dirs
+	
+		if [ "$remove_dirs" == "y" ] || [ "$remove_dirs" == "y" ]
+		then	
+			echo -n "Removing directories, please wait..."
+		
+			find "$BASE_DIR" -depth -type d -empty -exec rmdir {} \;
+
+			echo "done."
+		fi
+	fi
 }
 
 main()
@@ -147,23 +162,8 @@ main()
 	fi
 
 	move_files
-
-	EMPTY_DIRECTORIES=$(find . -type d -empty | wc -l | tr -d " ")
-	if [ "$EMPTY_DIRECTORIES" -gt 0 ]
-	then
-		echo -e "\nThere are $EMPTY_DIRECTORIES empty direcories in the base directory \"$BASE_DIR\"."
-		echo -n "Do you want to remove the empty directories? (y/n) "
-		read remove_dirs
-	
-		if [ "$remove_dirs" == "y" ] || [ "$remove_dirs" == "y" ]
-		then	
-			echo -n "Removing directories, please wait..."
-		
-			remove_empty_directories
-
-			echo "done."
-		fi
-	fi
+			
+	remove_empty_directories
 
 	echo "All done!"
 	exit 0
