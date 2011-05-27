@@ -16,6 +16,7 @@ BASE_DIR="."
 TARGET_DIR="."
 TOTAL_SIZE="0"
 TOTAL_FILES="0"
+MOVE_ERRORS="0"
 
 usage()
 {
@@ -24,7 +25,7 @@ DESCRIPTION
 	Arrange folders and files by MP3 ID3 type.
 
 USAGE
-	mp3arrange.sh [<options>] [<directory>]
+	mp3arrange.sh [<directory>]
 
 OPTIONS
 	-h, --help	Show this help
@@ -35,7 +36,6 @@ DIRECTORY
 	If no directory is specified, the current directory will be used.
 
 EXAMPLES
-	./mp3arrange.sh -l .
 	./mp3arrange.sh /home/user/Music/
 
 VERSION
@@ -65,39 +65,32 @@ if_error()
 
 safe_dirname()
 {
-	echo "$1" | sed 's/[\/\\=+\<\>]/-/g'
-}
-
-function get_stats()
-{
-	TOTAL_FILES=$( find "$BASE_DIR"  -type f -iname "*.mp3" | wc -l | tr -d " " )
-
-	TOTAL_SIZE=$( find "$BASE_DIR" -type f -iname "*.mp3" -ls | awk '{ print $7 }' | awk '{ total += $1 } END { print total }' )
-
-	if [ "$TOTAL_SIZE" -ge "1073741824" ]
+	DIR=$(echo "$1" | sed 's/[\/\\=+\<\>]/-/g')
+	
+	if [ "$DIR" == "" ]
 	then
-		TOTAL_SIZE="$((TOTAL_SIZE / 1073741824))G"
-
-	elif [ "$TOTAL_SIZE" -ge "1048576" ]
-	then
-		TOTAL_SIZE="$((TOTAL_SIZE / 1048576))M"
-	else
-		TOTAL_SIZE="$((TOTAL_SIZE / 128))K"
+		DIR=$2
 	fi
+
+	echo "$DIR"
 }
 
-#TODO: total file errors
+
 move_files()
 {
-	find "$BASE_DIR" -type f -iname "*.mp3" | while read file
+	find "Music" -type f -iname "*.mp3" | while read file
 	do
 		echo "Processing $file..."
 
-		GENRE_DIR=$( safe_dirname "`id3v2 -l "$file" | sed -n '/^TCON/s/^.*: //p' | sed 's/ (.*//'`" )
+		INFO=$( id3v2 -l "$file" )
 
-		ARTIST_DIR=$( safe_dirname "`id3v2 -l "$file" | sed -n '/^TPE1/s/^.*: //p' | sed 's/ (.*//'`" )
+		GENRE_DIR=$( safe_dirname "`echo "$INFO" | sed -n '/^TCON/s/^.*: //p' | sed 's/ (.*//'`" "Unknown Genre")
 
-		ALBUM_DIR=$( safe_dirname "`id3v2 -l "$file" | sed -n '/^TALB/s/^.*: //p' | sed 's/ (.*//'`" )
+		ARTIST_DIR=$( safe_dirname "`echo "$INFO" | sed -n '/^TPE1/s/^.*: //p' | sed 's/ (.*//'`" "Uknown Artist")
+
+		ALBUM_DIR=$( safe_dirname "`echo "$INFO" | sed -n '/^TALB/s/^.*: //p' | sed 's/ (.*//'`" "Uknown Album")
+	
+		#TODO: add default values if non found
 
 		DIRECTORY="$BASE_DIR/$GENRE_DIR/$ARTIST_DIR/$ALBUM_DIR"
 
@@ -105,8 +98,16 @@ move_files()
 		if_error "Could not create directory \"$DIRECTORY\"" 1
 
 		mv "$file" "$DIRECTORY/" > /dev/null 2>&1
-		if_error "Could not move file \"$file\""
+		if [ $? -ne 0 ]
+		then
+			echo "Could not move file \"$file\""
+			MOVE_ERRORS=$(($MOVE_ERRORS+1))
+			echo "$MOVE_ERRORS errors"
+		fi
 	done
+
+	echo "$MOVE_ERRORS errors"
+	exit
 }
 
 #TODO: not ignoring hidden files
@@ -127,6 +128,24 @@ remove_empty_directories()
 
 			echo "done."
 		fi
+	fi
+}
+
+function get_stats()
+{
+	TOTAL_FILES=$( find "$BASE_DIR"  -type f -iname "*.mp3" | wc -l | tr -d " " )
+
+	TOTAL_SIZE=$( find "$BASE_DIR" -type f -iname "*.mp3" -ls | awk '{ print $7 }' | awk '{ total += $1 } END { print total }' )
+
+	if [ "$TOTAL_SIZE" -ge "1073741824" ]
+	then
+		TOTAL_SIZE="$((TOTAL_SIZE / 1073741824))G"
+
+	elif [ "$TOTAL_SIZE" -ge "1048576" ]
+	then
+		TOTAL_SIZE="$((TOTAL_SIZE / 1048576))M"
+	else
+		TOTAL_SIZE="$((TOTAL_SIZE / 128))K"
 	fi
 }
 
@@ -163,6 +182,8 @@ main()
 	fi
 
 	move_files
+
+	echo "$MOVE_ERRORS errors encountered."
 			
 	remove_empty_directories
 
@@ -183,7 +204,7 @@ do
 			;;
 		*)
 			[ -n "$1" ] && BASE_DIR="$1"
-			
+
 			if [ ! -d "$BASE_DIR" ]
 			then
 				echo "Invalid directory!"
